@@ -1,5 +1,6 @@
 const User = require('../models/user.model');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const { validationResult } = require('express-validator');
 
 // Register (Traditional)
@@ -17,20 +18,38 @@ exports.register = async (req, res) => {
             return res.status(400).json({ message: 'User already exists' });
         }
 
-        user = new User({ email, password, fullName, department, batch });
+        const role = batch ? 'student' : 'faculty';
+
+        user = new User({
+            email,
+            password,
+            fullName,
+            department: department || null,
+            batch: batch || null,
+            role
+        });
+
         await user.save();
 
         const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '24h' });
 
         res.status(201).json({
             token,
-            user: { id: user._id, email: user.email, fullName: user.fullName, role: user.role }
+            user: {
+                id: user._id,
+                email: user.email,
+                fullName: user.fullName,
+                role: user.role
+            }
         });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
     }
 };
+
+
+ 
 
 // Login (Traditional)
 exports.login = async (req, res) => {
@@ -139,3 +158,6 @@ exports.updateProfile = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+
+ 
+

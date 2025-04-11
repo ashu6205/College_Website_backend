@@ -20,7 +20,6 @@ exports.createAcademicGroup = async (req, res) => {
 
         console.log('Received data:', req.body);
 
-        // Validate required fields
         if (!courseCode || !courseTitle) {
             return res.status(400).json({
                 success: false,
@@ -31,7 +30,14 @@ exports.createAcademicGroup = async (req, res) => {
         // Ensure classRepresentatives is an array
         const crs = Array.isArray(classRepresentatives) ? classRepresentatives : [];
 
-        // Create the group with CRs added to both classRepresentatives and students
+        // Get creator ID from auth middleware (assumed attached to req.user)
+        const creatorId = req.user._id;
+
+        // Add creator + CRs into a Set to avoid duplicates
+        const studentSet = new Set([...crs.map(id => id.toString()), creatorId.toString()]);
+        const uniqueStudents = Array.from(studentSet);
+
+        // Create the group
         const group = new AcademicGroup({
             batchYear,
             department,
@@ -40,12 +46,12 @@ exports.createAcademicGroup = async (req, res) => {
             courseTitle,
             faculty: faculty || [],
             classRepresentatives: crs,
-            students: crs  // Initialize students with the CRs
+            students: uniqueStudents
         });
 
         await group.save();
 
-        // Fetch the populated group for the response
+        // Fetch and return populated version
         const populatedGroup = await AcademicGroup.findById(group._id)
             .populate('faculty', 'fullName email')
             .populate('classRepresentatives', 'fullName email')
@@ -65,6 +71,7 @@ exports.createAcademicGroup = async (req, res) => {
         });
     }
 };
+
  
 
 
@@ -240,7 +247,8 @@ exports.uploadResource = async (req, res) => {
             files: req.files.map(file => ({
                 filename: file.filename,  // matches your schema
                 originalName: file.originalname,  // matches your schema
-                path: file.path.replace(/\\/g, '/'),  // convert Windows path to Unix style
+                path: file.path.replace(/\\/g, '/').replace(/^public\//, ''),
+  // convert Windows path to Unix style
                 uploadedAt: new Date()  // matches your schema
             })),
             isAnnouncement: type === 'announcement',
@@ -661,3 +669,5 @@ exports.addStudents = async (req, res) => {
         });
     }
 };
+
+
